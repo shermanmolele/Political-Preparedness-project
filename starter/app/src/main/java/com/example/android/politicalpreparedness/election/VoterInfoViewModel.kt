@@ -1,21 +1,44 @@
 package com.example.android.politicalpreparedness.election
 
-import androidx.lifecycle.ViewModel
-import com.example.android.politicalpreparedness.database.ElectionDao
+import android.app.Application
+import androidx.lifecycle.*
+import com.example.android.politicalpreparedness.database.ElectionDatabase
+import com.example.android.politicalpreparedness.network.models.Election
+import kotlinx.coroutines.launch
 
-class VoterInfoViewModel(private val dataSource: ElectionDao) : ViewModel() {
 
-    //TODO: Add live data to hold voter info
+class VoterInfoViewModel(application: Application) : AndroidViewModel(application) {
+    private val database = ElectionDatabase.getInstance(application)
 
-    //TODO: Add var and methods to populate voter info
+    private val electionsRepository = ElectionRepository(database)
+    var url = MutableLiveData<String>()
 
-    //TODO: Add var and methods to support loading URLs
+    val voterInfo = electionsRepository.voterInfo
 
-    //TODO: Add var and methods to save and remove elections to local database
-    //TODO: cont'd -- Populate initial state of save button to reflect proper action based on election saved status
+    private val electionId = MutableLiveData<Int>()
+    val election = electionId.switchMap {id ->
+        liveData {
+            emitSource(electionsRepository.getElection(id))
+        }
+    }
 
-    /**
-     * Hint: The saved state can be accomplished in multiple ways. It is directly related to how elections are saved/removed from the database.
-     */
+    fun getElection(id: Int) {
+        electionId.value = id
+    }
 
+    fun saveElection(election: Election) {
+        election.isSaved = !election.isSaved
+        viewModelScope.launch {
+            electionsRepository.insertElection(election)
+        }
+    }
+
+    fun getVoterInfo(electionId: Int, address: String) =
+        viewModelScope.launch {
+            electionsRepository.getVoterInfo(electionId, address)
+        }
+
+    fun intentUrl(url: String) {
+        this.url.value = url
+    }
 }
